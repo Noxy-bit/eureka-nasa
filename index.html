@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EUREKA · Geospatial Intelligence for International Trade</title>
+  <meta name="description" content="EUREKA — NASA Earth observation (GPM, FIRMS, MODIS, ECOSTRESS, SEDAC) applied to climate risk on international cargo transport." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230B0F19' stroke='%2322d3ee' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%2334d399'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: {
+      colors: { space: { 900: '#0B0F19', 800: '#0f1526', 700: '#141c33' }, neon: { cyan: '#22d3ee', emerald: '#34d399' } },
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], display: ['Space Grotesk', 'Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+    } } };
+  </script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="min-h-screen">
+  <canvas id="stars"></canvas>
+  <div class="grid-overlay"></div>
+  <div class="nebula nebula-a"></div><div class="nebula nebula-b"></div><div class="nebula nebula-c"></div>
+
+  <!-- ================= TOP NAV ================= -->
+  <header class="sticky top-0 z-50 glass-strong border-b border-white/5 backdrop-blur-xl">
+    <div class="flex items-center gap-3 px-3 lg:px-5 h-14">
+      <button id="btn-sidebar" class="btn btn-ghost !p-2" title="Sidebar"><i data-lucide="panel-left"></i></button>
+      <a href="#" class="flex items-center gap-2.5 mr-2 group">
+        <div class="relative w-9 h-9 rounded-xl grid place-items-center bg-gradient-to-br from-cyan-500/30 to-emerald-500/30 border border-cyan-400/40 glow-cyan">
+          <i data-lucide="orbit" class="w-5 h-5 text-cyan-300"></i>
+        </div>
+        <div class="leading-tight">
+          <div class="font-display font-bold text-lg tracking-[.18em] gradient-text">EUREKA</div>
+          <div class="text-[.6rem] text-slate-400 -mt-0.5 hidden sm:block" data-i18n="tagline"></div>
+        </div>
+      </a>
+      <nav id="nav-tabs" class="hidden lg:flex items-center gap-1 ml-2 overflow-x-auto scroll-thin">
+        <button class="nav-tab" data-view="ops"><span class="mod-num">M1</span><i data-lucide="briefcase" class="w-3.5 h-3.5"></i><span class="hidden xl:inline" data-i18n="nav_ops"></span></button>
+        <button class="nav-tab" data-view="cargo"><span class="mod-num">M2</span><i data-lucide="package-search" class="w-3.5 h-3.5"></i><span class="hidden xl:inline" data-i18n="nav_cargo"></span></button>
+        <button class="nav-tab active" data-view="map"><span class="mod-num">M3</span><i data-lucide="satellite" class="w-3.5 h-3.5"></i><span class="hidden xl:inline" data-i18n="nav_map"></span></button>
+        <button class="nav-tab" data-view="alerts"><span class="mod-num">M4</span><i data-lucide="siren" class="w-3.5 h-3.5"></i><span class="hidden xl:inline" data-i18n="nav_alerts"></span><span id="nav-alert-count" class="badge badge-high !py-0 !px-1.5 ml-1">0</span></button>
+        <button class="nav-tab" data-view="compare"><span class="mod-num">M5</span><i data-lucide="git-compare-arrows" class="w-3.5 h-3.5"></i><span class="hidden xl:inline" data-i18n="nav_compare"></span></button>
+        <button class="nav-tab" data-view="ai"><span class="mod-num">M6</span><i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span class="hidden xl:inline" data-i18n="nav_ai"></span></button>
+      </nav>
+      <div class="ml-auto flex items-center gap-2 sm:gap-3">
+        <div class="hidden md:flex items-center gap-2 text-[.68rem] text-slate-400"><span class="live-dot"></span><span class="font-mono text-emerald-300" data-i18n="live"></span><span id="src-ok" class="hidden xl:inline">7/7</span><span class="hidden xl:inline" data-i18n="sources_ok"></span></div>
+        <div id="clock" class="font-mono text-xs text-cyan-200/90 hidden sm:block">--:--:-- UTC</div>
+        <div class="seg"><button id="lang-es" class="active">ES</button><button id="lang-en">EN</button></div>
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 grid place-items-center text-[.65rem] font-bold text-space-900">FC</div>
+      </div>
+    </div>
+    <!-- mobile nav -->
+    <nav id="nav-tabs-mobile" class="flex lg:hidden items-center gap-1 px-3 pb-2 overflow-x-auto scroll-thin"></nav>
+    <!-- telemetry ticker -->
+    <div class="ticker-wrap border-t border-white/5 bg-space-900/70 h-7 flex items-center">
+      <div id="ticker" class="ticker"></div>
+    </div>
+  </header>
+
+  <!-- ================= BODY ================= -->
+  <div class="relative z-10 flex">
+    <div id="sidebar-backdrop"></div>
+    <!-- ---------- SIDEBAR ---------- -->
+    <aside id="sidebar" class="w-[300px] shrink-0 px-3 pt-4 pb-10 space-y-4 lg:sticky lg:top-[6.25rem] lg:h-[calc(100vh-6.25rem)] lg:overflow-y-auto scroll-thin">
+      <!-- active operation -->
+      <section class="glass p-4">
+        <div class="flex items-center justify-between mb-3"><span class="label" data-i18n="sb_active_op"></span><span class="badge badge-cyan" id="sb-op-id">—</span></div>
+        <select id="sb-op-select" class="field mb-3"></select>
+        <div id="sb-op-summary" class="space-y-2 text-xs"></div>
+      </section>
+      <!-- analysis window -->
+      <section class="glass p-4">
+        <span class="label block mb-2" data-i18n="sb_window"></span>
+        <div class="seg w-full justify-between" id="window-seg">
+          <button data-win="today" class="active flex-1" data-i18n="win_today"></button>
+          <button data-win="tomorrow" class="flex-1" data-i18n="win_tomorrow"></button>
+          <button data-win="week" class="flex-1" data-i18n="win_week"></button>
+        </div>
+      </section>
+      <!-- cargo profile -->
+      <section class="glass p-4">
+        <div class="flex items-center justify-between mb-3"><span class="label" data-i18n="sb_cargo"></span><button class="btn btn-ghost btn-xs" data-goto="cargo"><i data-lucide="pencil" class="w-3 h-3"></i></button></div>
+        <div id="sb-cargo"></div>
+      </section>
+      <!-- NASA layers -->
+      <section class="glass p-4">
+        <span class="label block mb-3" data-i18n="sb_layers"></span>
+        <div id="layer-toggles" class="space-y-2.5"></div>
+      </section>
+      <!-- Source status -->
+      <section class="glass p-4">
+        <span class="label block mb-3" data-i18n="sb_sources"></span>
+        <div id="source-status" class="space-y-2"></div>
+        <div class="mt-3 pt-3 border-t border-white/5 text-[.62rem] text-slate-500 leading-relaxed" id="validation-layers"></div>
+      </section>
+    </aside>
+
+    <!-- ---------- MAIN ---------- -->
+    <main class="flex-1 min-w-0 px-3 lg:px-5 pt-4 pb-12 space-y-4">
+
+      <!-- ===== VIEW: MAP (Módulo 3) ===== -->
+      <section id="view-map" class="view active space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 class="font-display text-xl font-bold text-white" data-i18n="mod3"></h1>
+            <p class="text-xs text-slate-400 mt-0.5" id="map-subtitle"></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-fit" class="btn btn-ghost btn-xs"><i data-lucide="globe-2" class="w-3.5 h-3.5"></i><span data-i18n="map_fit"></span></button>
+            <button id="btn-focus" class="btn btn-ghost btn-xs"><i data-lucide="locate-fixed" class="w-3.5 h-3.5"></i><span data-i18n="map_focus"></span></button>
+          </div>
+        </div>
+        <!-- KPI row -->
+        <div id="kpi-row" class="grid grid-cols-2 xl:grid-cols-4 gap-3"></div>
+        <!-- Map + alert feed -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="xl:col-span-2 glass relative overflow-hidden" style="min-height: 540px; height: 60vh;">
+            <div id="map"></div>
+            <div class="scanline"></div>
+            <div class="map-overlay top-3 right-3 glass-strong rounded-lg px-3 py-2 text-[.65rem] space-y-1" id="map-legend"></div>
+            <div class="map-overlay bottom-3 right-3 seg glass-strong" id="basemap-seg"><button data-bm="dark" class="active" data-i18n="bm_dark"></button><button data-bm="night" data-i18n="bm_night"></button><button data-bm="marble" data-i18n="bm_marble"></button><button data-bm="sat" data-i18n="bm_sat"></button></div>
+            <div class="map-overlay bottom-3 left-3 glass-strong rounded-lg px-3 py-2 text-[.62rem] text-slate-400 font-mono" id="map-coords">lat — · lng —</div>
+          </div>
+          <div class="glass p-4 flex flex-col" style="min-height: 540px; height: 60vh;">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2"><i data-lucide="radio-tower" class="w-4 h-4 text-cyan-300"></i><span class="font-semibold text-sm">NASA Live Threat Feed</span></div>
+              <span class="flex items-center gap-1.5 text-[.62rem] text-emerald-300 font-mono"><span class="live-dot"></span><span data-i18n="live"></span></span>
+            </div>
+            <div id="feed-compact" class="flex-1 overflow-y-auto scroll-thin space-y-2 pr-1"></div>
+            <button class="btn btn-ghost btn-xs mt-3 self-end" data-goto="alerts"><span data-i18n="nav_alerts"></span><i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+          </div>
+        </div>
+        <!-- Route table + chart -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="xl:col-span-2 glass p-4 overflow-hidden">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2"><i data-lucide="route" class="w-4 h-4 text-emerald-300"></i><span class="font-semibold text-sm">Smart Route Risk & Alternative Calculator</span></div>
+              <button class="btn btn-ghost btn-xs" data-goto="compare"><span data-i18n="nav_compare"></span><i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+            </div>
+            <div class="overflow-x-auto scroll-thin"><table class="tbl" id="route-table"></table></div>
+          </div>
+          <div class="glass p-4">
+            <div class="font-semibold text-sm" data-i18n="chart_title"></div>
+            <div class="text-[.65rem] text-slate-400 mb-3" data-i18n="chart_sub"></div>
+            <div style="height: 260px"><canvas id="chart-profile"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== VIEW: OPERATIONS (Módulo 1) ===== -->
+      <section id="view-ops" class="view space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div><h1 class="font-display text-xl font-bold text-white" data-i18n="mod1"></h1><p class="text-xs text-slate-400 mt-0.5" id="ops-subtitle"></p></div>
+          <button id="btn-new-op" class="btn btn-primary"><i data-lucide="plus" class="w-4 h-4"></i><span data-i18n="new_op"></span></button>
+        </div>
+        <div id="ops-kpis" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+        <div id="op-form" class="glass p-5 hidden">
+          <div class="flex items-center gap-2 mb-4"><i data-lucide="file-plus-2" class="w-4 h-4 text-cyan-300"></i><span class="font-semibold text-sm" data-i18n="register_op"></span></div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div><span class="label" data-i18n="f_company"></span><input id="f-company" class="field mt-1" value="Farmacorp Import S.R.L." /></div>
+            <div><span class="label" data-i18n="f_type"></span><select id="f-type" class="field mt-1"><option value="import" data-i18n="type_import"></option><option value="export" data-i18n="type_export"></option><option value="transit" data-i18n="type_transit"></option></select></div>
+            <div><span class="label" data-i18n="f_mode"></span><select id="f-mode" class="field mt-1"><option value="truck">Camión / Truck</option><option value="rail">Ferroviario / Rail</option><option value="multimodal">Multimodal</option></select></div>
+            <div class="md:col-span-2"><span class="label" data-i18n="f_route"></span><select id="f-route" class="field mt-1"></select></div>
+            <div><span class="label" data-i18n="f_date"></span><input id="f-date" type="datetime-local" class="field mt-1" value="2026-11-13T06:00" /></div>
+            <div><span class="label" data-i18n="f_product"></span><input id="f-product" class="field mt-1" placeholder="Insulina refrigerada…" /></div>
+            <div><span class="label" data-i18n="f_category"></span><select id="f-cargo" class="field mt-1"></select></div>
+            <div class="flex items-end gap-3 pb-1"><label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer"><span class="toggle" id="f-essential"></span>Esencial / Essential</label></div>
+          </div>
+          <div class="flex justify-end gap-2 mt-4"><button id="btn-cancel-op" class="btn btn-ghost" data-i18n="collapse"></button><button id="btn-save-op" class="btn btn-primary"><i data-lucide="scan-search" class="w-4 h-4"></i><span data-i18n="analyze"></span></button></div>
+        </div>
+        <div class="glass p-4 overflow-hidden"><div class="overflow-x-auto scroll-thin"><table class="tbl" id="ops-table"></table></div></div>
+      </section>
+
+      <!-- ===== VIEW: CARGO (Módulo 2) ===== -->
+      <section id="view-cargo" class="view space-y-4">
+        <div><h1 class="font-display text-xl font-bold text-white" data-i18n="mod2"></h1><p class="text-xs text-slate-400 mt-0.5" id="cargo-subtitle"></p></div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer glass px-3 py-2"><span class="toggle" id="mixed-toggle"></span><span data-i18n="f_mixed"></span></label>
+          <span class="text-[.65rem] text-slate-500" data-i18n="cargo_mixed_note"></span>
+        </div>
+        <div id="cargo-cards" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="xl:col-span-2 glass p-5">
+            <div class="flex items-center gap-2 mb-4"><i data-lucide="clipboard-list" class="w-4 h-4 text-emerald-300"></i><span class="font-semibold text-sm" data-i18n="f_sheet"></span></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div class="md:col-span-3"><span class="label" data-i18n="f_product"></span><input id="s-product" class="field mt-1" /></div>
+              <div><span class="label" data-i18n="f_tmin"></span><input id="s-tmin" type="number" class="field mt-1 num" /></div>
+              <div><span class="label" data-i18n="f_tmax"></span><input id="s-tmax" type="number" class="field mt-1 num" /></div>
+              <div><span class="label" data-i18n="f_delay"></span><input id="s-delay" type="number" class="field mt-1 num" /></div>
+              <div><span class="label" data-i18n="f_hum"></span><input id="s-hum" type="range" min="0" max="1" step="0.05" class="w-full mt-2 accent-cyan-400" /></div>
+              <div><span class="label" data-i18n="f_water"></span><input id="s-water" type="range" min="0" max="1" step="0.05" class="w-full mt-2 accent-cyan-400" /></div>
+              <div><span class="label" data-i18n="f_frag"></span><input id="s-frag" type="range" min="0" max="1" step="0.05" class="w-full mt-2 accent-cyan-400" /></div>
+              <div class="flex items-center gap-2 text-xs text-slate-300"><span class="toggle" id="s-refrig"></span><span data-i18n="f_refrig"></span></div>
+              <div class="flex items-center gap-2 text-xs text-slate-300"><span class="toggle" id="s-frozen"></span><span data-i18n="f_frozen"></span></div>
+            </div>
+            <div class="flex justify-end mt-4"><button id="btn-save-sheet" class="btn btn-primary"><i data-lucide="save" class="w-4 h-4"></i><span data-i18n="save_profile"></span></button></div>
+          </div>
+          <div class="glass p-5" id="cargo-threshold-panel"></div>
+        </div>
+      </section>
+
+      <!-- ===== VIEW: ALERTS (Módulo 4) ===== -->
+      <section id="view-alerts" class="view space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div><h1 class="font-display text-xl font-bold text-white" data-i18n="mod4"></h1><p class="text-xs text-slate-400 mt-0.5" data-i18n="alert_note"></p></div>
+          <div class="seg" id="alert-filter">
+            <button data-f="all" class="active" data-i18n="alerts_filter_all"></button>
+            <button data-f="satellite" data-i18n="state_satellite_s"></button>
+            <button data-f="reported" data-i18n="state_reported_s"></button>
+            <button data-f="confirmed" data-i18n="state_confirmed_s"></button>
+          </div>
+        </div>
+        <div id="alert-states" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="xl:col-span-2 space-y-2" id="alert-list"></div>
+          <div class="space-y-4">
+            <div class="glass p-4" id="exposure-panel"></div>
+            <div class="glass p-4" id="pop-panel"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== VIEW: COMPARE (Módulo 5) ===== -->
+      <section id="view-compare" class="view space-y-4">
+        <div><h1 class="font-display text-xl font-bold text-white" data-i18n="mod5"></h1><p class="text-xs text-slate-400 mt-0.5" id="compare-subtitle"></p></div>
+        <div id="dims-row" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+        <div class="glass p-4 overflow-hidden"><div class="overflow-x-auto scroll-thin"><table class="tbl" id="compare-table"></table></div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="glass p-4"><div class="font-semibold text-sm mb-1" data-i18n="chart_title"></div><div style="height: 280px"><canvas id="chart-compare"></canvas></div></div>
+          <div class="glass p-4"><div class="font-semibold text-sm mb-3">Radar · 3 dimensiones</div><div style="height: 280px"><canvas id="chart-radar"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ===== VIEW: AI (Módulo 6) ===== -->
+      <section id="view-ai" class="view space-y-4">
+        <div><h1 class="font-display text-xl font-bold text-white" data-i18n="mod6"></h1><p class="text-xs text-slate-400 mt-0.5" data-i18n="ai_sub"></p></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="xl:col-span-2 glass p-4 flex flex-col" style="height: 70vh; min-height: 560px;">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-8 h-8 rounded-lg grid place-items-center bg-gradient-to-br from-cyan-500/30 to-emerald-500/30 border border-cyan-400/40"><i data-lucide="sparkles" class="w-4 h-4 text-cyan-300"></i></div>
+              <div><div class="font-semibold text-sm" data-i18n="ai_title"></div><div class="text-[.62rem] text-slate-400 font-mono">eureka-ai · grounded on GPM · FIRMS · MODIS · ECOSTRESS · SEDAC</div></div>
+            </div>
+            <div id="chat" class="flex-1 overflow-y-auto scroll-thin space-y-3 pr-1"></div>
+            <div id="chips" class="flex flex-wrap gap-1.5 mt-3"></div>
+            <form id="chat-form" class="flex gap-2 mt-3">
+              <input id="chat-input" class="field flex-1" data-i18n-ph="ai_placeholder" autocomplete="off" />
+              <button class="btn btn-primary" type="submit"><i data-lucide="send-horizontal" class="w-4 h-4"></i></button>
+            </form>
+          </div>
+          <div class="space-y-4">
+            <div class="glass p-4">
+              <button id="btn-report" class="btn btn-primary w-full justify-center"><i data-lucide="file-text" class="w-4 h-4"></i><span data-i18n="ai_report"></span></button>
+              <p class="text-[.65rem] text-slate-500 mt-2 leading-relaxed" data-i18n="ai_sub"></p>
+            </div>
+            <div class="glass p-4" id="ai-context"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-root"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
