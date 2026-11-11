@@ -717,7 +717,7 @@
     $$('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
     $('#lang-es').classList.toggle('active', state.lang === 'es'); $('#lang-en').classList.toggle('active', state.lang === 'en');
     $('#map-subtitle').textContent = es() ? 'Corredores logísticos + capas NASA (GPM IMERG · FIRMS · MODIS LST · ECOSTRESS 70 m · SEDAC GPW). Cada observación muestra fuente y fecha.' : 'Logistics corridors + NASA layers (GPM IMERG · FIRMS · MODIS LST · ECOSTRESS 70 m · SEDAC GPW). Every observation shows source and timestamp.';
-    $('#nav-tabs-mobile').innerHTML = $('#nav-tabs').innerHTML.replace(/id="nav-alert-count"/g, 'class="badge badge-high !py-0 !px-1.5 ml-1 nav-alert-count"');
+    $('#nav-tabs-mobile').innerHTML = $('#nav-tabs').innerHTML.replace(/id="nav-alert-count"/g, 'class="badge badge-high !py-0 !px-1.5 ml-1 nav-alert-count"').replace(/hidden xl:inline/g, '');
     $$('.nav-tab').forEach(b => b.onclick = () => setView(b.dataset.view));
   }
   function renderAll() {
@@ -727,6 +727,7 @@
   }
   function init() {
     stars(); clock(); setInterval(clock, 1000);
+    const hdr = () => document.documentElement.style.setProperty('--hdr', $('header').offsetHeight + 'px'); hdr(); addEventListener('resize', hdr);
     initMap(); applyI18n(); setupOpsForm(); setupCargo(); setupAI();
     renderAll(); renderOps(); renderCargo(); renderAlerts(); renderCompare();
     $('#sb-op-select').onchange = e => selectOp(e.target.value);

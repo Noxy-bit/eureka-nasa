@@ -113,13 +113,13 @@
           </div>
         </div>
         <!-- KPI row -->
-        <div id="kpi-row" class="grid grid-cols-2 xl:grid-cols-4 gap-3"></div>
+        <div id="kpi-row" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3"></div>
         <!-- Map + alert feed -->
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div class="xl:col-span-2 glass relative overflow-hidden" style="min-height: 540px; height: 60vh;">
             <div id="map"></div>
             <div class="scanline"></div>
-            <div class="map-overlay top-3 right-3 glass-strong rounded-lg px-3 py-2 text-[.65rem] space-y-1" id="map-legend"></div>
+            <div class="map-overlay top-3 right-3 glass-strong rounded-lg px-3 py-2 text-[.65rem] space-y-1 hidden sm:block" id="map-legend"></div>
             <div class="map-overlay bottom-3 right-3 seg glass-strong" id="basemap-seg"><button data-bm="dark" class="active" data-i18n="bm_dark"></button><button data-bm="night" data-i18n="bm_night"></button><button data-bm="marble" data-i18n="bm_marble"></button><button data-bm="sat" data-i18n="bm_sat"></button></div>
             <div class="map-overlay bottom-3 left-3 glass-strong rounded-lg px-3 py-2 text-[.62rem] text-slate-400 font-mono" id="map-coords">lat — · lng —</div>
           </div>
